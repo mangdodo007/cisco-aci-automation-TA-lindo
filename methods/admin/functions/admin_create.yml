@@ -1,0 +1,171 @@
+---
+  - name: ACI Admin - Security domains, local user and export policy
+    hosts: apic
+    gather_facts: false
+    connection: local
+    collections:
+      - cisco.aci
+      - cisco.mso
+    user: remote
+    tags:
+      - create
+    
+    vars:
+      aci_login: &aci_login
+        hostname: "{{ apic_hostname }}"
+        username: "{{ apic_username }}"
+        password: "{{ apic_password }}"
+        validate_certs: "{{ apic_validate_certs }}"
+
+    vars_files:
+      - "../../vars/admin_{{xls_filename}}.yml"
+    
+    tasks:
+    - name: Create Security Domains
+      tags:
+      - secdomain
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content: |
+          {
+            "aaaDomain": {
+                "attributes": {
+                    "dn": "uni/userext/domain-{{item.name}}",
+                    "name": "{{item.name}}",
+                    "descr": "{{item.desc}}",
+                },
+                "children": []
+            }
+          }
+      with_items:
+      - "{{ secdom }}"
+
+    - name: Add Local User
+      tags: 
+        - localuser
+        - aaaUser    
+      aci_aaa_user:
+        <<: *aci_login
+        aaa_user: "{{item.username}}"
+        aaa_password: "{{item.password}}"
+        expiration: never
+        expires: no
+        email: "{{item.email}}"
+        phone: "{{item.phone}}"
+        first_name: "{{item.firstname}}"
+        last_name: "{{item.lastname}}"
+        state: present
+        clear_password_history: yes
+      no_log: true
+      delegate_to: localhost        
+      with_items:
+        - "{{aaaUser}}"                 
+
+    - name: Attach Security Domains
+      tags: 
+        - localuser
+        - aaaUserDomain    
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+              aaaUserDomain:
+                attributes:
+                  dn: "uni/userext/user-{{item.username}}/userdomain-{{item.secdom}}"
+                  name: "{{item.secdom}}"
+                children:
+                  - aaaUserRole:
+                      attributes:
+                        dn: "uni/userext/user-{{item.username}}/userdomain-{{item.secdom}}/role-{{item.role}}"
+                        name: "{{item.role}}"
+                        privType: "{{item.access_type}}"
+
+      delegate_to: localhost        
+      with_items:
+        - "{{aaaUserDomain}}"
+
+    - name: Configure Remote Locations
+      tags: 
+        - export_policy
+        - remote_loc    
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          fileRemotePath:
+            attributes:
+              dn: "uni/fabric/path-{{item.name}}"
+              remotePort: "{{item.port}}"
+              name: "{{item.name}}"
+              descr: "{{item.desc}}"
+              protocol: "{{item.protocol}}"
+              host: "{{item.ip}}"
+              remotePath: "{{item.path}}"
+              userName: "{{item.username}}"
+              userPasswd: "{{item.password}}"
+              rn: "path-{{item.name}}"
+            children:
+            - fileRsARemoteHostToEpg:
+                attributes:
+                  tDn: "uni/tn-mgmt/mgmtp-default/{{item.management}}-{{item.epg}}"
+      delegate_to: localhost        
+      with_items:
+        - "{{remote_loc}}"
+
+    - name: Configure Schedulers
+      tags: 
+        - export_policy
+        - schedulers
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          trigSchedP:
+            attributes:
+              dn: "uni/fabric/schedp-{{item.name}}"
+              name: "{{item.name}}"
+              rn: "schedp-{{item.name}}"
+            children:
+            - trigRecurrWindowP:
+                attributes:
+                  dn: "uni/fabric/schedp-{{item.name}}/recurrwinp-{{item.recurrName}}"
+                  name: "{{item.recurrName}}"
+                  hour: "{{item.hour}}"
+                  minute: "{{item.minute}}"
+                  rn: "recurrwinp-{{item.recurrName}}"
+      delegate_to: localhost        
+      with_items:
+        - "{{schedulers}}"
+
+    - name: Configure Export Policies
+      tags: 
+        - export_policy
+        - export_config
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          configExportP:
+            attributes:
+              dn: "uni/fabric/configexp-{{item.name}}"
+              name: "{{item.name}}"
+              descr: "{{item.desc}}"
+              adminSt: "{{item.start}}"
+              format: "{{item.format}}"
+              rn: "configexp-{{item.name}}"
+            children:
+            - configRsExportScheduler:
+                attributes:
+                  tnTrigSchedPName: "{{item.schedulers}}"
+            - configRsRemotePath:
+                attributes:
+                  tnFileRemotePathName: "{{item.remote_loc}}"
+      delegate_to: localhost        
+      with_items:
+        - "{{export_config}}"

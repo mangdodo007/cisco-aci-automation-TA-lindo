@@ -1,0 +1,190 @@
+---
+  - name: ACI Create Interface Policies (CDP, LLDP, Link-Level), AEP, MCP
+    hosts: apic
+    gather_facts: false
+    connection: local
+    user: remote
+    tags:
+      - create
+    
+    vars:
+      aci_login: &aci_login
+        hostname: "{{ apic_hostname }}"
+        username: "{{ apic_username }}"
+        password: "{{ apic_password }}"
+        validate_certs: "{{ apic_validate_certs }}"
+
+    vars_files:
+      - "../../vars/fabric_access_policies_1_{{xls_filename}}.yml"
+    tasks:
+    - name: Create CDP Policies
+      tags:
+        - cdp
+      
+      # module only available in Ansible 2.9
+      aci_interface_policy_cdp:
+        <<: *aci_login
+        name: "{{item.name}}"
+        admin_state: "{{item.adminSt}}"
+        state: present
+      delegate_to: localhost
+      with_items:
+        - "{{cdp}}"
+
+
+    - name: Create LLDP Policies
+      tags:
+        - lldp
+      aci_intf_policy_lldp:
+        <<: *aci_login
+        lldp_policy: '{{ item.name }}'
+        description: 'LLDP {{ item.desc }}'
+        receive_state: '{{ item.rxSt }}'
+        transmit_state: '{{ item.txSt }}'
+        state: present
+      delegate_to: localhost
+      with_items:
+         - "{{lldp}}"
+
+    - name: Create Link Level Policies
+      tags:
+        - link
+      # No ansible module, hence use aci_rest
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content: |
+          "fabricHIfPol": {
+                "attributes": {
+                    "dn": "uni/infra/hintfpol-{{item.name}}",
+                    "name": "{{item.name}}",
+                    "descr": "{{item.desc}}",
+                    "linkDebounce": "100",
+                    "speed": "{{item.speed}}",
+                    "autoNeg": "{{item.autoneg}}"
+                },
+                "children": []
+            }
+       #<fabricHIfPol name="{{item.name}}" speed="{{item.speed}}" descr="Link Speed {{item.speed}}"/>
+      delegate_to: localhost
+      with_items:
+        - "{{link}}"
+
+    - name: Create LACP Policies
+      tags:
+        - lacp
+
+      aci_interface_policy_port_channel:
+        <<: *aci_login
+        port_channel: '{{ item.name }}'
+        description: '{{ item.desc }}'
+        mode: '{{ item.mode }}'
+      delegate_to: localhost
+      with_items:
+        - "{{lacp}}"
+
+    - name: Create MCP Policies
+      tags:
+        - mcp
+      
+      aci_interface_policy_mcp:
+        <<: *aci_login
+        mcp: "{{ item.name }}"
+        description: "{{ item.desc }}"
+        admin_state: "{{ item.adminSt }}"
+      delegate_to: localhost
+      with_items:
+        - "{{mcp}}"
+
+    - name: Create Stormcontrol Policies
+      tags:
+        - stormctrl
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content: |
+          "stormctrlIfPol": {
+              "attributes": {
+                  "dn": "uni/infra/stormctrlifp-{{item.name}}",
+                  "name": "{{item.name}}",
+                  "descr": "{{item.desc}}",
+                  "rate": "{{item.rate}}",
+                  "burstRate": "{{item.burstRate}}",
+              },
+              "children": []
+          }
+      with_items:
+        - "{{stormctl}}"
+
+    - name: Create Spanning Tree Interface policies
+      tags:
+        - stppool
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content: |
+          "stpIfPol": {
+            "attributes": {
+              "dn": "uni/infra/ifPol-{{ item.name }}",
+              "name": "{{ item.name }}",
+              "ctrl": "{{ item.ctrl }}",
+              #"rn": "ifPol-BPDU_Guard_Enabled",
+              #"status": "created"
+            },
+            "children": []
+          }
+      with_items:
+        - "{{ stp }}"
+
+    - name: Set default MCP policy
+      tags:
+      - mcp
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content: |
+          {
+            "mcpInstPol": {
+                "attributes": {
+                    "dn": "uni/infra/mcpInstP-default",
+                    "descr": "{{set_default_mcp[0].desc}}",
+                    "adminSt": "{{set_default_mcp[0].adminSt}}",
+                    "key": {{set_default_mcp[0].key}}"
+                },
+                "children": []
+            }
+          }
+
+    - name: Create AEPs
+      tags:
+        - aep
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni/infra.json" #infra.json to workaround status= bug (Cisco SR#683814655)
+        content: |
+          {
+            "infraAttEntityP": {
+              "attributes": {
+                "dn": "uni/infra/attentp-{{item.name}}",
+                "name": "{{item.name}}",
+                "descr": "{{item.desc}}"
+              },
+              "children": [
+                {
+                  "infraRsDomP": {
+                    "attributes": {
+                      "tDn": "uni/{{item.domtype}}-{{item.dom}}"
+                    },
+                    "children": []
+                  }
+                }
+              ]
+            }
+          }
+      with_items:
+        - "{{ aep }}"

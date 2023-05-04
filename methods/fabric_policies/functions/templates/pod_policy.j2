@@ -1,0 +1,58 @@
+{% if item.profname == "default" %}
+{
+  "fabricPodS": {
+    "attributes": {
+      "dn": "uni/fabric/podprof-default/pods-default-typ-ALL",
+      "name": "default"
+    },
+    "children": [
+      {
+        "fabricRsPodPGrp": {
+          "attributes": {
+            "tDn": "uni/fabric/funcprof/podpgrp-{{item.grpname}}"
+          }
+        }
+      }
+    ]
+  }
+}
+{% else %}
+{
+  "fabricPodP": {
+    "attributes": {
+      "dn": "uni/fabric/podprof-{{item.profname}}"
+    },
+    "children": [
+      {
+        "fabricPodS": {
+          "attributes": {
+            "dn": "uni/fabric/podprof-{{item.profname}}/pods-{{item.profname}}-typ-range",
+            "name": "{{item.profname}}"
+          },
+          "children": [
+            {
+              "fabricPodBlk": {
+                "attributes": {
+                  "dn": "uni/fabric/podprof-{{item.profname}}/pods-{{item.profname}}-typ-range/podblk-13f77e5ca3027138",
+                  "from_": "{{item.fromnode}}",
+                  "name": "13f77e5ca3027138",
+                  "to_": "{{item.tonode}}"
+                },
+                "children": []
+              }
+            },
+            {
+              "fabricRsPodPGrp": {
+                "attributes": {
+                  "tDn": "uni/fabric/funcprof/podpgrp-{{item.grpname}}"
+                },
+                "children": []
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+{% endif %}

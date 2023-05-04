@@ -1,0 +1,20 @@
+---
+  # - name: ACI Fabric Buildout Ansible - STEP1B
+  #   hosts: apic
+  #   gather_facts: false
+  #   tags:
+  #     - step1b
+
+  # - import_playbook: step1b/fabric_system.yml
+
+
+
+  - import_playbook: ../../user_input/get_input.yml
+  
+  - name: ACI Fabric Buildout Ansible - SYSTEM SETTINGS
+    hosts: apic
+    gather_facts: false
+    tags:
+      - system_settings
+
+  - import_playbook: ../functions/system_setting_create.yml

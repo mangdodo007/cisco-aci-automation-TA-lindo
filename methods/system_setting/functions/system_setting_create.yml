@@ -1,0 +1,221 @@
+---
+  - name: System Settings
+    hosts: apic
+    gather_facts: false
+    connection: local
+    collections:
+      - cisco.aci
+      - cisco.mso
+    user: remote
+    tags:
+      - create
+    
+    vars:
+      aci_login: &aci_login
+        hostname: "{{ apic_hostname }}"
+        username: "{{ apic_username }}"
+        password: "{{ apic_password }}"
+        validate_certs: "{{ apic_validate_certs }}"
+
+    vars_files:
+      - "../../vars/system_setting_{{xls_filename}}.yml"
+    
+    tasks:
+    - name: Set default Route Reflector ASN
+      tags:
+        - network
+        - routereflector
+        - rr
+        - rrasn
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content: |
+          {
+            "bgpAsP": {
+                "attributes": {
+                    "dn": "uni/fabric/bgpInstP-default/as",
+                    "asn": "{{rrasn.0.asn}}"
+                },
+                "children": []
+            }
+          }
+
+    - name: Set default Route Reflector Description
+      tags:
+        - network
+        - routereflector
+        - rr
+        - rrdesc
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content: |
+          {
+            "bgpInstPol": {
+                "attributes": {
+                    "dn": "uni/fabric/bgpInstP-default",
+                    "descr": "{{rrdesc.0.desc}}"
+                },
+                "children": []
+            }
+          }
+
+    - name: Add nodes to default Route Reflector
+      tags:
+        - network
+        - routereflector
+        - rr
+        - rrnode
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content: |
+          {
+            "bgpRRNodePEp": {
+                "attributes": {
+                    "dn": "uni/fabric/bgpInstP-default/rr/node-{{item.name}}",
+                    "id": "{{item.name}}",
+                    "descr": "{{item.desc}}"
+                },
+                "children": []
+            }
+          }
+      with_items:
+        - "{{rrnode}}"
+
+    - name: Configure System Alias and Banners
+      tags:
+        - sys_banner
+      
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          aaaPreLoginBanner:
+            attributes:
+              dn: "uni/userext/preloginbanner"
+              guiTextMessage: "{{item.gui_alias}}"
+              message: "{{item.ctrl_cli_banner}}"
+              switchMessage: "{{item.sw_cli_banner}}"
+              showBannerMessage: "{{item.show_banner_message}}"
+      with_items:
+        - "{{banner}}"
+
+    # - name: Configure System Endpoint Controls
+    #   tags:
+    #     - sys_ep_control
+      
+    #   aci_rest:
+    #     <<: *aci_login
+    #     method: post
+    #     path: "/api/node/mo/uni.json"
+    #     content:
+    #       epLoopProtectP:
+    #         attributes:
+    #           dn: "uni/infra/epLoopProtectP-default"
+    #           adminSt: "{{item.admin_st}}"
+    #           action: ""
+    #   with_items:
+    #     - "{{ep_control}}"
+
+    - name: Set Timezone
+      tags:
+        - network
+        - time
+        - timezone
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content: |
+          {
+            "datetimeFormat": {
+              "attributes": {
+                "descr": "{{timezone.0.desc}}",
+                "displayFormat": "{{timezone.0.format}}",
+                "dn": "uni/fabric/format-default",
+                "showOffset": "{{timezone.0.showOffset}}",
+                "tz": "{{timezone.0.tz}}"
+              },
+              "children": []
+            }
+          }
+
+    - name: Set OOB Preference
+      tags:
+        - oob_pref
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content: |
+          {
+            "mgmtConnectivityPrefs": {
+              "attributes": {
+                "dn": "uni/fabric/connectivityPrefs",
+                "interfacePref": "{{ apic_conn_pref[0].pref }}"
+              },
+              "children": []
+            }
+          }
+
+    - name: Enable IP Aging
+      tags:
+        - ip_aging
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content: |
+          {
+            "epIpAgingP": {
+              "attributes": {
+                "dn": "uni/infra/ipAgingP-default",
+                "adminSt": "{{ ip_aging[0].admin_state }}"
+              },
+              "children": []
+            }
+          }
+
+    - name: Disable Remote Endpoint Learning
+      tags:
+        - ep_learning
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content: |
+          {
+            "infraSetPol": {
+              "attributes": {
+                "dn": "uni/infra/settings",
+                "unicastXrEpLearnDisable": "{{ remote_ep_learning[0].admin_state }}"
+              },
+              "children": []
+            }
+          }
+
+
+    - name: Enable AES Encryption
+      tags:
+        - aes_encrypt
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content: |
+          {
+            "pkiExportEncryptionKey": {
+              "attributes": {
+                "dn": "uni/exportcryptkey",
+                "strongEncryptionEnabled": "{{ aes_encrypt[0].strong_encrypt }}",
+                "passphrase": "{{ aes_encrypt[0].passphrase }}"
+              },
+              "children": []
+            }
+          }

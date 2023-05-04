@@ -1,0 +1,134 @@
+---
+  - name: ACI Security- and Physical Domains
+    hosts: apic
+    gather_facts: false
+    connection: local
+    user: remote
+    tags:
+      - create
+    
+    vars:
+      aci_login: &aci_login
+        hostname: "{{ apic_hostname }}"
+        username: "{{ apic_username }}"
+        password: "{{ apic_password }}"
+        validate_certs: "{{ apic_validate_certs }}"
+
+    vars_files:
+      - "../../vars/fabric_access_policies_1_{{xls_filename}}.yml"
+    
+    tasks:
+    - name: Create Physical Domains
+      tags:
+        - physical_domain
+      aci_domain:
+        <<: *aci_login
+        domain: "{{ item.name }}"
+        domain_type: phys
+        state: present
+      with_items:
+        - "{{ phydom }}"
+
+    - name: Attach phydom to Vlan Pool
+      tags:
+        - phydom
+        - vlan_pool
+      aci_domain_to_vlan_pool:
+        <<: *aci_login
+        domain: "{{ item.name }}"
+        domain_type: phys
+        pool: "{{item.pool}}"
+        pool_allocation_mode: static
+        state: present
+      with_items:
+        - "{{ phydom }}"
+
+    - name: Attach Security Domain to PHYDOM
+      tags:
+        - phydom
+        - physical_domain
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content: |
+          {
+            "physDomP": {
+                "attributes": {
+                    "dn": "uni/phys-{{item.name}}",
+                    "name": "{{item.name}}",
+                },
+                "children": [
+                    {
+                        "aaaDomainRef": {
+                            "attributes": {
+                                "dn": "uni/phys-{{item.name}}/domain-{{item.secdom}}",
+                                "name": "{{item.secdom}}",
+                            },
+                            "children": []
+                        }
+                    }
+                ]
+            }
+          }
+      when: item.secdom != ""             
+      with_items:
+        - "{{ phydom }}"
+
+
+    - name: Create L3 External Domains
+      tags:
+        - l3extdom
+      aci_domain:
+        <<: *aci_login
+        domain: "{{ item.name }}"
+        domain_type: l3dom
+        state: present
+      with_items:
+        - "{{ l3outdom }}"
+
+    - name: Attach L3dom to Vlan Pool
+      tags:
+        - l3extdom
+        - vlan_pool
+      aci_domain_to_vlan_pool:
+        <<: *aci_login
+        domain: "{{ item.name }}"
+        domain_type: l3dom
+        pool: "{{item.pool}}"
+        pool_allocation_mode: static
+        state: present
+      with_items:
+        - "{{ l3outdom }}"
+
+    - name: Attach Security Domain to L3DOM
+      tags:
+        - l3extdom
+        - secdomain
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content: |
+          {
+              "l3extDomP": {
+                  "attributes": {
+                      "dn": "uni/l3dom-{{item.name}}",
+                      "name": "{{item.name}}",
+                  },
+                  "children": [
+                      {
+                          "aaaDomainRef": {
+                              "attributes": {
+                                  "dn": "uni/l3dom-{{item.name}}/domain-{{item.secdom}}",
+                                  "name": "{{item.secdom}}",
+                              },
+                              "children": []
+                          }
+                      }
+                  ]
+              }
+          }
+      when: item.secdom != "" 
+      with_items:
+        - "{{ l3outdom }}"                

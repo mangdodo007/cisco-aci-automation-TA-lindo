@@ -1,0 +1,124 @@
+---
+  - name: VIRTUAL NETWORKING - VMWARE
+    hosts: apic
+    gather_facts: false
+    collections:
+      - cisco.aci
+      - cisco.mso
+    tags:
+      - create
+    
+    vars:
+      aci_login: &aci_login
+        hostname: "{{ apic_hostname }}"
+        username: "{{ apic_username }}"
+        password: "{{ apic_password }}"
+        validate_certs: "{{ apic_validate_certs }}"
+
+    vars_files:
+      - "../../vars/virtual_networking_{{xls_filename}}.yml"
+    tasks:
+
+    - name: Configure VMware VMM Domain
+      tags:
+        - network
+        - vmw_vmm
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          vmmDomP:
+            attributes:
+              dn: "uni/vmmp-VMware/dom-{{item.name}}"
+              name: "{{item.name}}"
+              delimiter: "{{item.delimeter}}"
+            children:
+              - aaaDomainRef:
+                  attributes:
+                    dn: "uni/vmmp-VMware/dom-{{item.name}}/domain-{{item.secdom}}"
+                    name: "{{item.secdom}}"
+              - infraRsVlanNs:
+                  attributes:
+                    tDn: "uni/infra/vlanns-[{{item.vmmpool}}]-dynamic"
+              - vmmVSwitchPolicyCont:
+                  attributes:
+                    dn: "uni/vmmp-VMware/dom-{{item.name}}/vswitchpolcont"
+                  children:
+                    - vmmRsVswitchOverrideLacpPol:
+                        attributes:
+                          tDn: "uni/infra/lacplagp-{{item.override_lagpol}}"
+                    - vmmRsVswitchOverrideLldpIfPol:
+                        attributes:
+                          tDn: "uni/infra/lldpIfP-{{item.override_lldppol}}"
+      delegate_to: localhost
+      with_items:
+        - "{{vmw_vmm}}"
+
+    - name: Add Domain to AEP (from Step2B)
+      tags:
+        - network
+        - aep
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          infraAttEntityP:
+            attributes:
+              dn: "uni/infra/attentp-{{item.name}}"
+              name: "{{item.name}}"
+              descr: "{{item.desc}}"
+            children:
+              - infraRsDomP:
+                  attributes:
+                    tDn: "uni/{{item.domtype}}-{{item.dom}}"
+      delegate_to: localhost
+      with_items:
+        - "{{aep}}"
+
+
+    - name: Create VMM Credentials
+      tags:
+        - network
+        - vmw_vmmcreds
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+         vmmUsrAccP:
+           attributes:
+             dn: "uni/vmmp-VMware/dom-{{item.vmm_name}}/usracc-{{item.cred_name}}"
+             name:  "{{item.cred_name}}"
+             descr: "{{item.desc}}"
+             usr: "{{item.usr}}"
+             pwd: "{{item.pwd}}"
+      delegate_to: localhost
+      with_items:
+        - "{{vmw_vmmcreds}}"
+
+    - name: Create VMWare Vcenter Connection
+      tags:
+        - network
+        - vmw_vcenter
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          vmmCtrlrP:
+            attributes:
+              dn: "uni/vmmp-VMware/dom-{{item.vmm_name}}/ctrlr-{{item.name}}"
+              name: "{{item.name}}"
+              hostOrIp: "{{item.ip}}"
+              dvsVersion: "{{item.dvsversion}}"
+              rootContName: "{{item.dc_name}}"
+              statsMode: "{{item.stats}}"
+            children:
+              - vmmRsAcc:
+                  attributes:
+                    tDn: "uni/vmmp-VMware/dom-{{item.vmm_name}}/usracc-{{item.cred_name}}"
+      delegate_to: localhost
+      with_items:
+        - "{{vmw_vcenter}}"

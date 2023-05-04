@@ -1,0 +1,11 @@
+---
+  - import_playbook: ../../user_input/get_input.yml
+  
+  - name: ACI Fabric Buildout Ansible - FABRIC ACCESS POLICY 
+    hosts: apic
+    gather_facts: false
+    tags:
+      - fabric_access
+      - policy
+
+  - import_playbook: ../functions/fabric_access_1_policy_create.yml

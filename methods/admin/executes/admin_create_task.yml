@@ -1,0 +1,12 @@
+---
+  - import_playbook: ../../user_input/get_input.yml
+  
+  - name: ACI Fabric Buildout Ansible - ADMIN Security domains, local user and export policy
+    hosts: apic
+    gather_facts: false
+    tags:
+      - admin
+      - domains
+      - export_policy
+
+  - import_playbook: ../functions/admin_create.yml

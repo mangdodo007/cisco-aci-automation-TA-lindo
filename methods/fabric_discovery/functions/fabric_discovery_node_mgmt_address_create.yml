@@ -1,0 +1,161 @@
+---
+  - name: Confgiure Node Management Address
+    hosts: apic
+    gather_facts: false
+    connection: local
+    collections:
+      - cisco.aci
+      - cisco.mso
+    user: remote
+    tags:
+      - create
+    
+    vars:
+      aci_login: &aci_login
+        hostname: "{{ apic_hostname }}"
+        username: "{{ apic_username }}"
+        password: "{{ apic_password }}"
+        validate_certs: "{{ apic_validate_certs }}"
+
+    vars_files:
+      - "../../vars/fabric_discovery_{{xls_filename}}.yml"
+    
+    tasks:
+    - name: Configure OOB Management Access
+      tags:
+        - oob
+
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          mgmtRsOoBStNode:
+            attributes:
+              addr: "{{item.addr}}"
+              dn: "uni/tn-mgmt/mgmtp-default/oob-{{item.oobepg}}/rsooBStNode-[topology/pod-{{item.pod}}/node-{{item.node}}]"
+              gw: "{{item.gw}}"
+              tDn: "topology/pod-{{item.pod}}/node-{{item.node}}"
+              v6Addr: "::"
+              v6Gw: "::"
+      with_items:
+        - "{{oobstnode}}"
+
+
+    - name: Configure INB epg
+      tags:
+        - inb
+
+      aci_node_mgmt_epg:
+        <<: *aci_login  
+        epg: "{{item.inbepg}}"
+        type: in_band
+        encap: "vlan-{{item.vlan}}"
+        bd: inb
+        state: present
+      delegate_to: localhost
+      with_items:
+        - "{{inbstnode}}"
+
+
+    - name: Configure INB Management Access
+      tags:
+        - inb
+
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          mgmtRsInBStNode:
+            attributes:
+              addr: "{{item.addr}}"
+              dn: "uni/tn-mgmt/mgmtp-default/inb-{{item.inbepg}}/rsinBStNode-[topology/pod-{{item.pod}}/node-{{item.node}}]"
+              gw: "{{item.gw}}"
+              tDn: "topology/pod-{{item.pod}}/node-{{item.node}}"
+              v6Addr: "::"
+              v6Gw: "::"
+      with_items:
+        - "{{inbstnode}}"
+
+
+    - name: Configure geo location (site/bulding/floor/room/row/rack)
+      tags:
+        - geolocation
+
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content: |
+          {
+            "geoSite": {
+                "attributes": {
+                    "dn": "uni/fabric/site-{{item.site}}",
+                    "name": "{{item.site}}",
+                },
+                "children": [
+                    {
+                        "geoBuilding": {
+                            "attributes": {
+                                "dn": "uni/fabric/site-{{item.site}}/building-{{item.building}}",
+                                "name": "{{item.building}}",
+                            },
+                          "children": [
+                                {
+                                    "geoFloor": {
+                                        "attributes": {
+                                            "dn": "uni/fabric/site-{{item.site}}/building-{{item.building}}/floor-{{item.floor}}",
+                                            "name": "{{item.floor}}",
+                                        },
+                                        "children": [
+                                            {
+                                                "geoRoom": {
+                                                    "attributes": {
+                                                        "dn": "uni/fabric/site-{{item.site}}/building-{{item.building}}/floor-{{item.floor}}/room-{{item.room}}",
+                                                        "name": "{{item.room}}",
+                                                    },
+                                                    "children": [
+                                                        {
+                                                            "geoRow": {
+                                                                "attributes": {
+                                                                    "dn": "uni/fabric/site-{{item.site}}/building-{{item.building}}/floor-{{item.floor}}/room-{{item.room}}/row-{{item.row}}",
+                                                                    "name": "{{item.row}}",
+                                                                },
+                                                                "children": [
+                                                                    {
+                                                                        "geoRack": {
+                                                                            "attributes": {
+                                                                                "dn": "uni/fabric/site-{{item.site}}/building-{{item.building}}/floor-{{item.floor}}/room-{{item.room}}/row-{{item.row}}/rack-{{item.rack}}",
+                                                                                "name": "{{item.rack}}",
+                                                                            },
+                                                                            "children": [
+                                                                                {
+                                                                                    "geoRsNodeLocation": {
+                                                                                        "attributes": {
+                                                                                            "tDn": "topology/pod-1/node-{{item.node}}",
+                                                                                        },
+                                                                                        "children": []
+                                                                                    }
+                                                                                }
+                                                                            ]
+                                                                        }
+                                                                    }
+                                                                 ]
+                                                              }
+                                                        } 
+                                                     ]
+                                                    
+                                                 }
+                                            }
+                                         ]
+                                     }
+                                 }
+                           ]
+                         }
+                      }
+                 ]
+              }
+           }
+      with_items:
+        - "{{geolocation}}"

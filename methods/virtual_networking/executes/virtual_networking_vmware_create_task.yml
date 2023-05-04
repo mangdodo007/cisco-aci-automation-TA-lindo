@@ -1,0 +1,11 @@
+---
+  - import_playbook: ../../user_input/get_input.yml
+  
+  - name: ACI Fabric Buildout Ansible - VIRTUAL NETWORKING - VMWARE
+    hosts: apic
+    gather_facts: false
+    tags:
+        - network
+        - vmw_vmm
+
+  - import_playbook: ../functions/virtual_networking_vmware_create.yml

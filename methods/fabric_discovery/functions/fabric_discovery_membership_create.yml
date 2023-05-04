@@ -1,0 +1,41 @@
+---
+  - name: Configure Fabric Membership
+    hosts: apic
+    gather_facts: false
+    connection: local
+    collections:
+      - cisco.aci
+      - cisco.mso
+    user: remote
+    tags:
+      - create
+    
+    vars:
+      aci_login: &aci_login
+        hostname: "{{ apic_hostname }}"
+        username: "{{ apic_username }}"
+        password: "{{ apic_password }}"
+        validate_certs: "{{ apic_validate_certs }}"
+
+    vars_files:
+      - "../../vars/fabric_discovery_{{xls_filename}}.yml"
+    
+    tasks:
+    - name: Configure Fabric Components (Fabric Discovery)
+      tags:
+        - fab_discovery
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          fabricNodeIdentP:
+            attributes:
+              dn: "uni/controller/nodeidentpol/nodep-{{item.serial}}"
+              serial: "{{item.serial}}"
+              nodeId: "{{item.nodeid}}"
+              podId: "{{item.pod}}"
+              name: "{{item.name}}"
+              role: "{{item.role}}"
+      with_items:
+        - "{{fab_discovery}}"

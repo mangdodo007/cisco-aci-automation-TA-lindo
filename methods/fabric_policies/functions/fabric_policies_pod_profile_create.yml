@@ -1,0 +1,34 @@
+---
+  - name: FABRIC POLICIES - POD PROFILE
+    hosts: apic
+    gather_facts: false
+    connection: local
+    collections:
+      - cisco.aci
+      - cisco.mso
+    user: remote
+    tags:
+      - create
+
+    vars:
+      aci_login: &aci_login
+        hostname: "{{ apic_hostname }}"
+        username: "{{ apic_username }}"
+        password: "{{ apic_password }}"
+        validate_certs: "{{ apic_validate_certs }}"
+
+    vars_files:
+      - "../../vars/fabric_policies_{{xls_filename}}.yml"
+    
+    tasks:
+    - name: Create Pod Policy
+      tags:
+        - pod_policy
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content: "{{lookup('template', 'templates/pod_policy.j2')}}"
+      with_items:
+        - "{{podpol}}"
+

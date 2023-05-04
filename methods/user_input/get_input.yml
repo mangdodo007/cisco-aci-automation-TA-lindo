@@ -1,0 +1,13 @@
+- gather_facts: false
+  hosts: localhost
+  tags:
+  - input
+  tasks:
+  - add_host:
+      apic_hostname: 10.10.20.14
+      apic_password: C1sco12345
+      apic_username: admin
+      apic_validate_certs: false
+      groups: apic
+      name: 10.10.20.14
+      xls_filename: template

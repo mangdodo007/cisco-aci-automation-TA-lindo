@@ -1,0 +1,11 @@
+---
+  - import_playbook: ../../user_input/get_input.yml
+  
+  - name: ACI Fabric Buildout Ansible - NODE MANAGEMENT ADDRESS
+    hosts: apic
+    gather_facts: false
+    tags:
+      - node_mgmt
+      - site_building
+
+  - import_playbook: ../functions/fabric_discovery_node_mgmt_address_create.yml

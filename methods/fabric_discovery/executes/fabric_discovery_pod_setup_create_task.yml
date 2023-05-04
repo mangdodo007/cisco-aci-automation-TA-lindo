@@ -1,0 +1,10 @@
+---
+  - import_playbook: ../../user_input/get_input.yml
+  
+  - name: ACI Fabric Buildout Ansible - FABRIC POD AND TEP POOL
+    hosts: apic
+    gather_facts: false
+    tags:
+      - pod_and_tep_pool
+
+  - import_playbook: ../functions/fabric_discovery_pod_fabric_setup_create.yml

@@ -1,0 +1,28 @@
+---
+  - hosts: localhost
+    gather_facts: false
+    tags:
+      - input
+
+    vars_prompt:
+      - name: apic_ip
+        prompt: "Enter APIC or MSO IP address"
+        private: no 
+      - name: apic_username_input
+        prompt: "Enter APIC or MSO username"
+        private: no
+      - name: apic_password_input
+        prompt: "Enter APIC or MSO password"
+        private: yes
+      - name: xls_filename_input
+        prompt: "Enter Input Excel file (without file extension)"
+        private: no
+    tasks:
+      - add_host:
+          name: "{{ apic_ip }}"
+          groups: apic                                        # add apic_ip to group apic
+          apic_hostname: "{{ apic_ip }}"                      # these variables will be used in the child playbook.
+          apic_username: "{{ apic_username_input }}"
+          apic_password: "{{ apic_password_input }}"
+          xls_filename: "{{ xls_filename_input }}"
+          apic_validate_certs: false

@@ -1,0 +1,10 @@
+---
+  - import_playbook: ../../user_input/get_input.yml
+  
+  - name: ACI Fabric Buildout Ansible - FABRIC MEMBERSHIP
+    hosts: apic
+    gather_facts: false
+    tags:
+      - fabric_membership
+
+  - import_playbook: ../functions/fabric_discovery_membership_create.yml

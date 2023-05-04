@@ -1,0 +1,114 @@
+---
+  - name: FABRIC POLICIES - SWITCH POLICY GROUP
+    hosts: apic
+    gather_facts: false
+    connection: local
+    collections:
+      - cisco.aci
+      - cisco.mso
+    user: remote
+    tags:
+      - create
+
+    vars:
+      aci_login: &aci_login
+        hostname: "{{ apic_hostname }}"
+        username: "{{ apic_username }}"
+        password: "{{ apic_password }}"
+        validate_certs: "{{ apic_validate_certs }}"
+
+    vars_files:
+      - "../../vars/fabric_policies_{{xls_filename}}.yml"
+    
+    tasks:  
+    - name: Create Leaf Profile
+      tags:
+        - leafprof
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          fabricLeafP:
+            attributes:
+              dn: "uni/fabric/leprof-{{item.name}}"
+              name: "{{item.name}}"
+              descr: "{{item.desc}}"  
+      delegate_to: localhost
+      when: item.name is defined
+      with_items:
+        - "{{leafprof}}"
+
+    - name: Create Leaf Switch Association
+      tags:
+        - leafasc
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          fabricLeafS:
+            attributes:
+              dn: "uni/fabric/leprof-{{item.profile}}/leaves-{{item.name}}-typ-range"
+              type: "range"
+              name: "{{item.name}}"
+            children:  
+              - fabricNodeBlk:
+                  attributes:
+                    dn: "uni/fabric/leprof-{{item.profile}}/leaves-{{item.name}}-typ-range/nodeblk-2809e6c017d935b1"
+                    from_: "{{item.from}}"
+                    to_: "{{item.to}}"
+                    name: "2809e6c017d935b1"
+              - fabricRsLeNodePGrp:
+                  attributes:
+                    tDn: "uni/fabric/funcprof/lenodepgrp-{{item.polgroup}}"
+      delegate_to: localhost
+      when: item.name is defined
+      with_items:
+        - "{{leafasc}}"
+
+    - name: Create Spine Profile
+      tags:
+        - spineprof
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          fabricSpineP:
+            attributes:
+              dn: "uni/fabric/spprof-{{item.name}}"
+              name: "{{item.name}}"
+              descr: "{{item.desc}}"  
+      delegate_to: localhost
+      when: item.name is defined
+      with_items:
+        - "{{spineprof}}"
+
+    - name: Create Spine Switch Association
+      tags:
+        - spineasc
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          fabricSpineS:
+            attributes:
+              dn: "uni/fabric/spprof-{{item.profile}}/spines-{{item.name}}-typ-range"
+              type: "range"
+              name: "{{item.name}}"
+            children:  
+              - fabricNodeBlk:
+                  attributes:
+                    dn: "uni/fabric/spprof-{{item.profile}}/spines-{{item.name}}-typ-range/nodeblk-265cba6747ea6582"
+                    from_: "{{item.from}}"
+                    to_: "{{item.to}}"
+                    name: "265cba6747ea6582"
+              - fabricRsSpNodePGrp:
+                  attributes:
+                    tDn: "uni/fabric/funcprof/spnodepgrp-{{item.polgroup}}"
+      delegate_to: localhost
+      when: item.name is defined
+      with_items:
+        - "{{spineasc}}"        

@@ -1,0 +1,10 @@
+---
+  - import_playbook: ../../user_input/get_input.yml
+  
+  - name: ACI Fabric Buildout Ansible - FABRIC POLICIES POD Policy Group
+    hosts: apic
+    gather_facts: false
+    tags:
+      - fabric_policies
+
+  - import_playbook: ../functions/fabric_policies_pod_group_create.yml

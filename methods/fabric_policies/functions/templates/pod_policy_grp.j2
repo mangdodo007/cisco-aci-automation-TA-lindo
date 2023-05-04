@@ -1,0 +1,65 @@
+{
+  "fabricPodPGrp": {
+    "attributes": {
+      "dn": "uni/fabric/funcprof/podpgrp-{{item.name}}",
+      "name": "{{item.name}}",
+      "descr": "{{item.desc}}"
+    },
+    "children": [
+      {
+        "fabricRsTimePol": {
+          "attributes": {
+            "tnDatetimePolName": "{{item.ntp}}",
+            "status": "created,modified"
+          },
+          "children": []
+        }
+      },
+      {
+        "fabricRsPodPGrpIsisDomP": {
+          "attributes": {
+            "tnIsisDomPolName": "{{item.isis}}",
+            "status": "created,modified"
+          },
+          "children": []
+        }
+      },
+      {
+        "fabricRsPodPGrpCoopP": {
+          "attributes": {
+            "tnCoopPolName": "{{item.coop}}",
+            "status": "created,modified"
+          },
+          "children": []
+        }
+      },
+      {
+        "fabricRsPodPGrpBGPRRP": {
+          "attributes": {
+            "tnBgpInstPolName": "{{item.bgprr}}",
+            "status": "created,modified"
+          },
+          "children": []
+        }
+      },
+      {
+        "fabricRsCommPol": {
+          "attributes": {
+            "tnCommPolName": "{{item.mgt}}",
+            "status": "created,modified"
+          },
+          "children": []
+        }
+      },
+      {
+        "fabricRsSnmpPol": {
+          "attributes": {
+            "tnSnmpPolName": "{{item.snmp}}",
+            "status": "created,modified"
+          },
+          "children": []
+        }
+      }
+    ]
+  }
+}

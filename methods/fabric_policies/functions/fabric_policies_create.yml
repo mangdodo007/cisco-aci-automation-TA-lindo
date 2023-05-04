@@ -1,0 +1,262 @@
+---
+  - name: FABRIC POLICIES - POLICIES
+    hosts: apic
+    gather_facts: false
+    connection: local
+    collections:
+      - cisco.aci
+      - cisco.mso
+    user: remote
+    tags:
+      - create
+
+    vars:
+      aci_login: &aci_login
+        hostname: "{{ apic_hostname }}"
+        username: "{{ apic_username }}"
+        password: "{{ apic_password }}"
+        validate_certs: "{{ apic_validate_certs }}"
+
+    vars_files:
+      - "../../vars/fabric_policies_{{xls_filename}}.yml"
+    
+    tasks:
+    - name: Create NTP Policy
+      tags:
+        - network
+        - time
+        - ntp
+        - ntppol
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content: |
+          {
+            "datetimePol": {
+                "attributes": {
+                    "dn": "uni/fabric/time-{{item.name}}",
+                    "name": "{{item.name}}",
+                    "authSt": "{{item.authSt}}",
+                    "descr": "{{item.desc}}"
+                },
+                "children": []
+            }
+          }
+      with_items:
+        - "{{ntppol}}"
+
+    - name: Add Servers to NTP Policy
+      tags:
+        - network
+        - time
+        - ntp
+        - ntpsrv
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content: |
+          {
+            "datetimeNtpProv": {
+              "attributes": {
+                "dn": "uni/fabric/time-{{item.policy}}/ntpprov-{{item.name}}",
+                "name": "{{item.name}}",
+                "descr": "{{item.desc}}",
+                "preferred": "{{item.pref|lower}}"
+              },
+              "children": [
+                {
+                  "datetimeRsNtpProvToEpg": {
+                    "attributes": {
+                      "tDn": "uni/tn-mgmt/mgmtp-default/{{'oob-default' if item.mgmt_epg == 'oob' else 'inb-inb'}}"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+      with_items:
+        - "{{ntpsrv}}"
+
+    - name: Change Default ISIS policy
+      tags:
+        - isis_pol
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content: |
+          {
+            "isisDomPol": {
+              "attributes": {
+                "dn": "uni/fabric/isisDomP-default",
+                "redistribMetric": "{{ isis_policy[0].redistribute_metric }}"
+              },
+              "children": []
+            }
+          }
+
+    - name: Change Default Power Supply Redundancy Policy
+      tags:
+        - power_pol
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content: |
+          {
+            "psuInstPol": {
+              "attributes": {
+                "dn": "uni/fabric/psuInstP-default",
+                "adminRdnM": "{{'comb' if item.power_supply_redundant == 'Combined' else
+                                'ps-rdn' if item.power_supply_redundant == 'N+1 Redudancy' else 'rdn'}}"
+                },
+              "children": []
+              }
+          }
+      with_items:
+      - "{{power_supply_pol}}"
+    - name: Change Default Fabric Control Node PolicyGroup
+      tags:
+        - fabric_control_node
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content: |
+          {
+            "fabricNodeControl": {
+              "attributes": {
+                "dn": "uni/fabric/nodecontrol-default",
+                "control": "{{ '1' if item.dom == 'true' else '0' }}"
+              },
+              "children": []
+            }
+          }
+      with_items: 
+        - "{{fabricnc}}"
+
+    - name: Create SNMP Policy
+      tags:
+        - snmppol
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          snmpPol:
+            attributes:
+              dn: "uni/fabric/snmppol-{{item.name}}"
+              name: "{{item.name}}"
+              descr: "{{item.desc}}"
+              adminSt: "{{item.admSt}}"
+              contact: "{{item.snmpcont}}"
+              loc: "{{item.snmploc}}"             
+      delegate_to: localhost
+      when: item.name is defined
+      with_items:
+        - "{{snmppol}}"
+
+    - name: Create Client Group Policy
+      tags:
+        - snmppol
+        - snmpcg
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          snmpClientGrpP:
+            attributes:
+              dn: "uni/fabric/snmppol-{{item.policy}}/clgrp-{{item.name}}"
+              name: "{{item.name}}"
+              descr: "{{item.desc}}"
+            children:
+              - snmpRsEpg:
+                  attributes:
+                    tDn: "uni/tn-mgmt/mgmtp-default/{{'oob-default' if item.mgmt_epg == 'oob' else 'inb-inb'}}"             
+      delegate_to: localhost
+      when: item.name is defined
+      with_items:
+        - "{{snmpcg}}"
+
+    - name: Create Client Entry
+      tags:
+        - snmppol
+        - snmpce
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          snmpClientP:
+            attributes:
+              dn: "uni/fabric/snmppol-{{item.policy}}/clgrp-{{item.cgname}}/client-[{{item.address}}]"
+              name: "{{item.clientname}}"
+              addr: "{{item.address}}"  
+      delegate_to: localhost
+      when: item.clientname is defined
+      with_items:
+        - "{{snmpce}}"
+
+    - name: Create SNMP User
+      tags:
+        - snmppol
+        - snmpv3
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          snmpUserP:
+            attributes:
+              dn: "uni/fabric/snmppol-{{item.policy}}/user-{{item.name}}"
+              name: "{{item.name}}"
+              privType: "{{item.privacy}}"
+              privKey: "{{item.privacykey}}"
+              authType: "{{item.auth}}"
+              authKey: "{{item.authkey}}"  
+      delegate_to: localhost
+      when: item.name is defined
+      with_items:
+        - "{{snmpv3}}"            
+
+    - name: Create SNMP Community
+      tags:
+        - snmppol
+        - snmpcomm
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          snmpCommunityP:
+            attributes:
+              dn: "uni/fabric/snmppol-{{item.policy}}/community-{{item.name}}"
+              name: "{{item.name}}"
+              descr: "{{item.desc}}"  
+      delegate_to: localhost
+      when: item.name is defined
+      with_items:
+        - "{{snmpcomm}}"
+
+    - name: Create SNMP Trap Forwarder
+      tags:
+        - snmppol
+        - snmptrap
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          snmpTrapFwdServerP:
+            attributes:
+              dn: "uni/fabric/snmppol-{{item.policy}}/trapfwdserver-{{item.ipadd}}"
+              addr: "{{item.ipadd}}"
+              port: "{{item.port}}"  
+      delegate_to: localhost
+      when: item.ipadd is defined
+      with_items:
+        - "{{snmptrap}}"
+     

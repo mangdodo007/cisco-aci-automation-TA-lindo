@@ -1,0 +1,40 @@
+---
+  - name: Configure POD Fabric Setup
+    hosts: apic
+    gather_facts: false
+    collections:
+      - cisco.aci
+      - cisco.mso
+
+    tags:
+      - create
+    
+    vars:
+      aci_login: &aci_login
+        hostname: '{{ apic_hostname }}'
+        username: '{{ apic_username }}'
+        password: '{{ apic_password }}'
+        validate_certs: '{{ apic_validate_certs }}'
+
+    vars_files:
+      - "../../vars/fabric_discovery_{{xls_filename}}.yml"
+
+    tasks:
+
+    - name: Configure Mpod TEP Pool
+      tags:
+        - mpod_tep_pool
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          fabricSetupP:
+            attributes:
+              dn: "uni/controller/setuppol/setupp-{{item.pod_id}}"
+              podId: "{{item.pod_id}}"
+              tepPool: "{{item.tep_pool}}"
+            children: []
+      delegate_to: localhost
+      with_items:
+        - "{{mpod_tep_pool}}"

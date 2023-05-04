@@ -1,0 +1,73 @@
+---
+  - name: ACI Create Pools
+    hosts: apic
+    gather_facts: false
+    connection: local
+    collections:
+      - cisco.aci
+      - cisco.mso
+    user: remote
+    tags:
+      - create
+    
+    vars:
+      aci_login: &aci_login
+        hostname: "{{ apic_hostname }}"
+        username: "{{ apic_username }}"
+        password: "{{ apic_password }}"
+        validate_certs: "{{ apic_validate_certs }}"
+
+    vars_files:
+      - "../../vars/fabric_access_policies_1_{{xls_filename}}.yml"
+
+    tasks:
+    - name: Create VLAN pools
+      tags:
+      - vlan_pool
+      
+      aci_vlan_pool:
+        <<: *aci_login
+        pool: "{{item.name}}"
+        pool_allocation_mode: "{{item.allocmode}}"
+        description: "{{item.desc}}"
+        state: present
+
+      with_items:
+      - "{{vlanpool}}"
+
+    - name: Create VLAN encapsulations
+      tags:
+        - vlan_encap
+      
+      aci_vlan_pool_encap_block:
+        <<: *aci_login
+        pool: "{{item.name}}"
+        block_name: "{{item.name}}"
+        block_start: "{{item.frm_vlan}}"
+        block_end: "{{item.to_vlan}}"
+        pool_allocation_mode: "{{item.allocmode}}"
+        state: present
+
+      # aci_rest:
+      #   <<: *aci_login
+      #   method: post
+      #   path: "/api/node/mo/uni.json"
+      #   content: |
+      #     {
+      #       "fvnsEncapBlk": {
+      #           "attributes": {
+      #               "dn": "uni/infra/vlanns-[{{item.0.name}}]-{{item.1.allocmode}}/from-[vlan-{{item.0.frm_vlan}}]-to-[vlan-{{item.0.to_vlan}}]",
+      #               "descr": "{{item.0.vlan_desc}}",
+      #               "from": "vlan-{{item.0.frm_vlan}}" ,
+      #               "to": "vlan-{{item.0.to_vlan}}",
+      #               "allocMode": {{item.0.allocmode}},
+      #           },
+      #           "children": []
+      #       }
+      #     }
+      # when: item.0.name == item.1.name
+      # with_nested:   #encap dn requires allocmode from vlanpool...
+      #   - "{{vlan}}"    #item.0
+      #   - "{{vlanpool}}"  #item.1
+      with_items:
+      - "{{vlan}}"
