@@ -493,7 +493,7 @@ class Menu():
 		#Converting Excel to YAML				
 		xlName = input('\nInput Excel File Name (.xlsx or .xls): ')
 
-		xlPath = os.path.join(application_path, "helpers", xlName)
+		xlPath = os.path.join(application_path, "input_data", xlName)
 		varDir = os.path.join(application_path, "methods", "vars")
 		print('\n######## Converting Excel File to YAML ########\n')
 		xl2yaml_new.main(xlPath, varDir)
