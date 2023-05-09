@@ -106,7 +106,7 @@ class Menu():
 			\t\t\tCISCO ACI AUTOMATION\n
 			Requirement:
 			• Make sure You already fill the Excel file on input_data directory.
-			• Make sure You have IP, user, pass, excel name of APIC.
+			• Make sure You have IP or domain, user, pass, excel name of APIC.
 			""")
 
 	def display_menu(self):
