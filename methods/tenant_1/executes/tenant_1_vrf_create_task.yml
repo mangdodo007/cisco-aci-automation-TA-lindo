@@ -1,0 +1,11 @@
+---
+  - import_playbook: ../../user_input/get_input.yml
+  
+  - name: ACI Tenant Config - VRF
+    hosts: apic
+    gather_facts: false
+    tags:
+      - bridge_domains
+
+
+  - import_playbook: ../functions/tenant_1_vrf_create.yml

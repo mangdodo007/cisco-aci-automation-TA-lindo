@@ -1,0 +1,228 @@
+---
+
+  - name: ACI Tenant Config - TENANT
+    hosts: apic
+    gather_facts: false
+    connection: local
+    collections:
+      - cisco.aci
+      - cisco.mso
+    tags:
+      - create
+    
+    vars:
+      aci_login: &aci_login
+        hostname: "{{ apic_hostname }}"
+        username: "{{ apic_username }}"
+        password: "{{ apic_password }}"
+        validate_certs: "{{ apic_validate_certs }}"
+
+    vars_files:
+      - "../../vars/tenant_1_{{xls_filename}}.yml"
+      
+    tasks:
+    - name: Create Tenant
+      tags:
+        - tenant
+
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content: |
+          {
+            "fvTenant": {
+              "attributes": {
+                "dn": "uni/tn-{{item.name}}",
+                "name": "{{item.name}}",
+                "descr": "{{item.desc}}"
+              },
+              "children": [
+                {
+                  "aaaDomainRef": {
+                    "attributes": {
+                      "dn": "uni/tn-{{item.name}}/domain-{{item.secdom}}",
+                      "name": "{{item.secdom}}"
+                    },
+                    "children": []
+                  }
+                }
+              ]
+            }
+          }
+      delegate_to: localhost
+      with_items:
+      - "{{createtn}}"
+      
+    - name: Route Map Match Rule
+      tags:
+        - network
+        - tenant_policies
+        - rmap_match_rule
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          rtctrlSubjP:
+            attributes:
+              dn: "uni/tn-{{item.tn}}/subj-{{item.subjName}}"
+              name: "{{item.subjName}}"
+              rn: "subj-{{item.subjName}}"
+            children:
+            - rtctrlMatchRtDest:
+                attributes:
+                  dn: "uni/tn-{{item.tn}}/subj-{{item.subjName}}/dest-[{{item.prefix}}]"
+                  ip: "{{item.prefix}}"
+                  aggregate: "{{item.aggregate}}"
+                  rn: "dest-[{{item.prefix}}]"
+      delegate_to: localhost
+      with_items:
+        - "{{rmap_match_rule}}"
+
+    - name: Route Map Set Rules Community
+      tags:
+        - network
+        - tenant_policies
+        - rmap_set_rules
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          rtctrlAttrP:
+            attributes:
+              dn: "uni/tn-{{item.tn}}/attr-{{item.attrName}}"
+              name: "{{item.attrName}}"
+              rn: "attr-{{item.attrName}}"
+            children:
+            - rtctrlSetComm:
+                attributes:
+                  dn: "uni/tn-{{item.tn}}/attr-{{item.attrName}}/scomm"
+                  setCriteria: "{{item.criteria}}"
+                  community: "{{item.community}}"
+                  rn: "scomm"
+      delegate_to: localhost
+      with_items:
+        - "{{rmap_set_rules}}"
+
+    - name: Configure IP SLA
+      tags:
+        - ip_sla
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          fvIPSLAMonitoringPol:
+            attributes:
+              dn: "uni/tn-{{item.tn}}/ipslaMonitoringPol-{{item.sla}}"
+              name: "{{item.sla}}"
+              rn: "ipslaMonitoringPol-{{item.sla}}"
+              descr: "{{item.desc}}"
+              slaDetectMultiplier: "{{item.multiplier}}"
+              slaFrequency: "{{item.frequency}}"
+              slaType: "{{item.type}}"
+              slaPort: "{{item.port}}"
+      delegate_to: localhost
+      with_items:
+        - "{{ip_sla}}"
+
+    - name: Configure L4-L7 Redirect Health Groups
+      tags:
+        - health_group
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          vnsRedirectHealthGroup:
+            attributes:
+              dn: "uni/tn-{{item.tn}}/svcCont/redirectHealthGroup-{{item.healthGroup}}"
+              name: "{{item.healthGroup}}"
+              rn: "{{item.healthGroup}}"
+              descr: "{{item.desc}}"
+      delegate_to: localhost
+      with_items:
+        - "{{health_group}}"
+
+    - name: Configure L4-L7 Policy-Based Redirect
+      tags:
+        - l4l7_pbr
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          vnsSvcRedirectPol:
+            attributes:
+              dn: "uni/tn-{{item.tn}}/svcCont/svcRedirectPol-{{item.pbr}}"
+              name: "{{item.pbr}}"
+              descr: "{{item.desc}}"
+              rn: "svcRedirectPol-{{item.pbr}}"
+              hashingAlgorithm: "{{item.hash}}"
+            children:
+            - vnsRedirectDest:
+                attributes:
+                  dn: "uni/tn-{{item.tn}}/svcCont/svcRedirectPol-{{item.pbr}}/RedirectDest_ip-[{{item.ip}}]"
+                  ip: "{{item.ip}}"
+                  mac: "{{item.mac}}"
+                  rn: "RedirectDest_ip-[{{item.ip}}]"
+                children:
+                - vnsRsRedirectHealthGroup:
+                    attributes:
+                      tDn: "uni/tn-{{item.tn}}/svcCont/redirectHealthGroup-{{item.healthGroup}}"
+            - vnsRsIPSLAMonitoringPol:
+                attributes:
+                  tDn: "uni/tn-{{item.tn}}/ipslaMonitoringPol-{{item.sla}}"
+      delegate_to: localhost
+      with_items:
+        - "{{l4l7_pbr}}"
+
+    - name: Configure BFD
+      tags:
+        - bfd_policy
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          bfdIfPol:
+            attributes:
+              dn: "uni/tn-{{item.tn}}/bfdIfPol-{{item.bfd}}"
+              name: "{{item.bfd}}"
+              minTxIntvl: "{{item.minTX}}"
+              minRxIntvl: "{{item.minRX}}"
+              echoRxIntvl: "{{item.echo}}"
+              detectMult: "{{item.multiplier}}"
+              rn: "bfdIfPol-{{item.bfd}}"
+      delegate_to: localhost
+      with_items:
+        - "{{bfd_policy}}"
+
+    - name: Configure OSPF Interface
+      tags:
+        - ospf_int
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          ospfIfPol:
+            attributes:
+              dn: "uni/tn-{{item.tn}}/ospfIfPol-{{item.ospfInterface}}"
+              name: "{{item.ospfInterface}}"
+              descr: "{{item.desc}}"
+              nwT: "{{item.networkType}}"
+              cost: "{{item.cost}}"
+              ctrl: "{{item.ctrl}}"
+              deadIntvl: "{{item.deadTime}}"
+              helloIntvl: "{{item.hello}}"
+              rexmitIntvl: "{{item.retransmit}}"
+              xmitDelay: "{{item.delay}}"
+              rn: "ospfIfPol-{{item.ospfInterface}}"
+      delegate_to: localhost
+      with_items:
+        - "{{ospf_int}}"
+
+

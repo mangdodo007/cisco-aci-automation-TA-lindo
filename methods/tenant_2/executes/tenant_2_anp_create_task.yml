@@ -1,0 +1,12 @@
+---
+  - import_playbook: ../../user_input/get_input.yml
+  
+  - name: ACI Tenant Config - APPLICATION PROFILE
+    hosts: apic
+    gather_facts: false
+    tags:
+        - application
+        - anp
+
+
+  - import_playbook: ../functions/tenant_2_anp_create.yml

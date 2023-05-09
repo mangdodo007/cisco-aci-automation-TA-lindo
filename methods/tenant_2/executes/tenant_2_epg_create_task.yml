@@ -1,0 +1,11 @@
+---
+  - import_playbook: ../../user_input/get_input.yml
+  
+  - name: ACI Tenant Config - EPG
+    hosts: apic
+    gather_facts: false
+    tags:
+        - epg
+
+
+  - import_playbook: ../functions/tenant_2_epg_create.yml

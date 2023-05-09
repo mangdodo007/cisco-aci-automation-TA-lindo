@@ -1,0 +1,11 @@
+---
+  - import_playbook: ../../user_input/get_input.yml
+  
+  - name: ACI Tenant Config - BRIDGE DOMAIN
+    hosts: apic
+    gather_facts: false
+    tags:
+      - bridge_domains
+
+
+  - import_playbook: ../functions/tenant_1_bridge_domain_create.yml

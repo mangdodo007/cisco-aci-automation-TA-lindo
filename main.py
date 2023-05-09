@@ -3,6 +3,7 @@ import sys
 import yaml
 import getpass
 import re
+import time
 from methods.excel_parse_method import xl2yaml_new
 
 # make sure the item for every data menu is 18 items
@@ -15,30 +16,49 @@ data1 = (
    "    3. POD Fabric Setup",    
    "    4. Fabric Membership",     		
    "    5. Node Management Address",
-           
-)
-
-data2 = (
   "FABRIC POLICIES:",            
    "    6. Policies",              
    "    7. Switch Policy Group",    
    "    8. Switch Profile",         
    "    9. POD Policy Group",     
    "    10. POD Profile",
+           
+)
+
+data2 = (
+   "FABRIC ACCESS POLICIES:",             
+   "    11. Access Policies",                
+   "    12. Pools",                         
+   "    13. Domains", 
+   "TENANT 1:",                            
+   "    14. Tenant",                         
+   "    15. VRF",                       
+   "    16. Bridge Domain",
+   "TENANT 2:",                             
+   "    17. Application Profile",                        
+   "    18. EPG",
    "",
    "",
+   "",
+   "",
+
    
 )
 
 data3 = (
-   "FABRIC ACCESS POLICIES 1:",             
-   "    11. Access Policies",                
-   "    12. Pools",                         
-   "    13. Domains",    
+   "TENANT 3:",                             
+   "    19. L3OUT OSPF",                       
+   "    20. L3OUT BGP", 
    "TOOLS:",
-   "    31. Convert Excel to YAML",
-   "    32. Clear Vars Folder",
+   "    21. Convert Excel to YAML",
+   "    22. Clear Vars Folder",
    "     0. Quit",
+   "",
+   "",
+   "",
+   "",
+   "",
+   "",
 )
 
 
@@ -68,8 +88,15 @@ class Menu():
 		"11" : self.accPolicies,
 		"12" : self.pools,
 		"13" : self.domains,
-		"31" : self.xltoyml,
-        "32" : self.clear_var,
+		"14" : self.tenant,
+		"15" : self.vrf,
+		"16" : self.bd,
+		"17" : self.ap,
+		"18" : self.epg,
+		"19" : self.l3OSPF,
+		"20" : self.l3BGP,
+		"21" : self.xltoyml,
+        "22" : self.clear_var,
 		"0" : self.quit
 		}
 
@@ -78,7 +105,7 @@ class Menu():
 		print("""
 			\t\t\tCISCO ACI AUTOMATION\n
 			Requirement:
-			• Make sure You already fill the Excel file on helpers directory.
+			• Make sure You already fill the Excel file on input_data directory.
 			• Make sure You have IP, user, pass, excel name of APIC.
 			""")
 
@@ -137,7 +164,7 @@ class Menu():
 				print(f"WARNING: Wrong Input.. Press Enter key to Continue...")
 				input()
 			else:
-				if "32" in cmd_list or "31" in cmd_list or "0" in cmd_list:
+				if "21" in cmd_list or "22" in cmd_list or "0" in cmd_list:
 					action = self.choices.get(choice)
 					if action:
 						action()
@@ -158,6 +185,17 @@ class Menu():
 					self.reset_input()
 					self.run()
 
+ 
+	def execute_script(self, cmd)	:
+		time_start = time.time()
+		os.system(cmd)
+		time_end = time.time()
+		elapsed_time = time_end - time_start
+		elapsed_time_minutes = elapsed_time / 60
+		print(f"Total Required Time: {elapsed_time_minutes:.2f} minutes")
+		print()
+		input("Press Enter to continue...")
+ 
 	def sysSetting(self):
 
 		self.clear()
@@ -176,10 +214,7 @@ class Menu():
 		
 		confirm = input('Are you sure to push this configuration? [y/n]: ')
 		if confirm == 'y' or confirm == 'Y':
-			os.system(cmd)
-			print()
-			input("Press Enter to continue...")
-			# self.run()
+			self.execute_script(cmd)
 		elif confirm == 'n' or confirm == 'N':
 			self.reset_input()
 			self.run()
@@ -200,10 +235,7 @@ class Menu():
 		
 		confirm = input('Are you sure to push this configuration? [y/n]: ')
 		if confirm == 'y' or confirm == 'Y':
-			os.system(cmd)
-			print()
-			input("Press Enter to continue...")
-			# self.run()
+			self.execute_script(cmd)
 		elif confirm == 'n' or confirm == 'N':
 			self.reset_input()
 			self.run()
@@ -226,10 +258,7 @@ class Menu():
 		
 		confirm = input('Are you sure to push this configuration? [y/n]: ')
 		if confirm == 'y' or confirm == 'Y':
-			os.system(cmd)
-			print()
-			input("Press Enter to continue...")
-			# self.run()
+			self.execute_script(cmd)
 		elif confirm == 'n' or confirm == 'N':
 			self.reset_input()
 			self.run()
@@ -251,10 +280,7 @@ class Menu():
 		
 		confirm = input('Are you sure to push this configuration? [y/n]: ')
 		if confirm == 'y' or confirm == 'Y':
-			os.system(cmd)
-			print()
-			input("Press Enter to continue...")
-			# self.run()
+			self.execute_script(cmd)
 		elif confirm == 'n' or confirm == 'N':
 			self.reset_input()
 			self.run()
@@ -278,10 +304,7 @@ class Menu():
 		
 		confirm = input('Are you sure to push this configuration? [y/n]: ')
 		if confirm == 'y' or confirm == 'Y':
-			os.system(cmd)
-			print()
-			input("Press Enter to continue...")
-			# self.run()
+			self.execute_script(cmd)
 		elif confirm == 'n' or confirm == 'N':
 			self.reset_input()
 			self.run()
@@ -303,10 +326,7 @@ class Menu():
 		
 		confirm = input('Are you sure to push this configuration? [y/n]: ')
 		if confirm == 'y' or confirm == 'Y':
-			os.system(cmd)
-			print()
-			input("Press Enter to continue...")
-			# self.run()
+			self.execute_script(cmd)
 		elif confirm == 'n' or confirm == 'N':
 			self.reset_input()
 			self.run()
@@ -327,10 +347,7 @@ class Menu():
 		
 		confirm = input('Are you sure to push this configuration? [y/n]: ')
 		if confirm == 'y' or confirm == 'Y':
-			os.system(cmd)
-			print()
-			input("Press Enter to continue...")
-			# self.run()
+			self.execute_script(cmd)
 		elif confirm == 'n' or confirm == 'N':
 			self.reset_input()
 			self.run()
@@ -352,10 +369,7 @@ class Menu():
 	
 		confirm = input('Are you sure to push this configuration? [y/n]: ')
 		if confirm == 'y' or confirm == 'Y':
-			os.system(cmd)
-			print()
-			input("Press Enter to continue...")
-			# self.run()
+			self.execute_script(cmd)
 		elif confirm == 'n' or confirm == 'N':
 			self.reset_input()
 			self.run()
@@ -376,10 +390,7 @@ class Menu():
 		
 		confirm = input('Are you sure to push this configuration? [y/n]: ')
 		if confirm == 'y' or confirm == 'Y':
-			os.system(cmd)
-			print()
-			input("Press Enter to continue...")
-			# self.run()
+			self.execute_script(cmd)
 		elif confirm == 'n' or confirm == 'N':
 			self.reset_input()
 			self.run()
@@ -400,10 +411,7 @@ class Menu():
 		
 		confirm = input('Are you sure to push this configuration? [y/n]: ')
 		if confirm == 'y' or confirm == 'Y':
-			os.system(cmd)
-			print()
-			input("Press Enter to continue...")
-			# self.run()
+			self.execute_script(cmd)
 		elif confirm == 'n' or confirm == 'N':
 			self.reset_input()
 			self.run()
@@ -426,10 +434,7 @@ class Menu():
 		
 		confirm = input('Are you sure to push this configuration? [y/n]: ')
 		if confirm == 'y' or confirm == 'Y':
-			os.system(cmd)
-			print()
-			input("Press Enter to continue...")
-			# self.run()
+			self.execute_script(cmd)
 		elif confirm == 'n' or confirm == 'N':
 			self.reset_input()
 			self.run()
@@ -450,10 +455,7 @@ class Menu():
 		
 		confirm = input('Are you sure to push this configuration? [y/n]: ')
 		if confirm == 'y' or confirm == 'Y':
-			os.system(cmd)
-			print()
-			input("Press Enter to continue...")
-			# self.run()
+			self.execute_script(cmd)
 		elif confirm == 'n' or confirm == 'N':
 			self.reset_input()
 			self.run()
@@ -475,16 +477,175 @@ class Menu():
 		
 		confirm = input('Are you sure to push this configuration? [y/n]: ')
 		if confirm == 'y' or confirm == 'Y':
-			os.system(cmd)
-			print()
-			input("Press Enter to continue...")
-			# self.run()
+			self.execute_script(cmd)
 		elif confirm == 'n' or confirm == 'N':
 			self.reset_input()
 			self.run()
 		else:
 			confirm
 
+	def tenant(self):
+
+		self.clear()
+		print("""
+			\t\t\tCISCO ACI AUTOMATION\n
+			\t\tTenant will be configure:
+			\t\t• Tenant
+			\t\t• Tenant Policies
+			""")
+
+		cmd = 'ansible-playbook methods/tenant_1/executes/tenant_1_tenant_create_task.yml'
+
+		
+		confirm = input('Are you sure to push this configuration? [y/n]: ')
+		if confirm == 'y' or confirm == 'Y':
+			self.execute_script(cmd)
+		elif confirm == 'n' or confirm == 'N':
+			self.reset_input()
+			self.run()
+		else:
+			confirm
+
+	def vrf(self):
+
+		self.clear()
+		print("""
+			\t\t\tCISCO ACI AUTOMATION\n
+			\t\tVRF will be configure:
+			\t\t• VRF
+			""")
+
+		cmd = 'ansible-playbook methods/tenant_1/executes/tenant_1_vrf_create_task.yml'
+
+		
+		confirm = input('Are you sure to push this configuration? [y/n]: ')
+		if confirm == 'y' or confirm == 'Y':
+			self.execute_script(cmd)
+		elif confirm == 'n' or confirm == 'N':
+			self.reset_input()
+			self.run()
+		else:
+			confirm
+
+	def bd(self):
+
+		self.clear()
+		print("""
+			\t\t\tCISCO ACI AUTOMATION\n
+			\t\tBridge Domain will be configure:
+			\t\t• Bridge Domain
+			\t\t• Bridge Domain Subnet
+			\t\t• Bridge Domain L3OUT
+			""")
+
+		cmd = 'ansible-playbook methods/tenant_1/executes/tenant_1_bridge_domain_create_task.yml'
+
+		
+		confirm = input('Are you sure to push this configuration? [y/n]: ')
+		if confirm == 'y' or confirm == 'Y':
+			self.execute_script(cmd)
+		elif confirm == 'n' or confirm == 'N':
+			self.reset_input()
+			self.run()
+		else:
+			confirm
+
+	def ap(self):
+
+		self.clear()
+		print("""
+			\t\t\tCISCO ACI AUTOMATION\n
+			\t\tApplication Profile will be configure:
+			\t\t• Application Profile
+			""")
+
+		cmd = 'ansible-playbook methods/tenant_2/executes/tenant_2_anp_create_task.yml'
+
+		
+		confirm = input('Are you sure to push this configuration? [y/n]: ')
+		if confirm == 'y' or confirm == 'Y':
+			self.execute_script(cmd)
+		elif confirm == 'n' or confirm == 'N':
+			self.reset_input()
+			self.run()
+		else:
+			confirm
+
+	def epg(self):
+
+		self.clear()
+		print("""
+			\t\t\tCISCO ACI AUTOMATION\n
+			\t\tEndpoint Group will be configure:
+			\t\t• Endpoint Group (EPG)
+			\t\t• Static Binding
+			\t\t• Filter
+			\t\t• Contract
+			\t\t• vzAny
+			\t\t• Interface Description
+			""")
+
+		cmd = 'ansible-playbook methods/tenant_2/executes/tenant_2_epg_create_task.yml'
+
+		
+		confirm = input('Are you sure to push this configuration? [y/n]: ')
+		if confirm == 'y' or confirm == 'Y':
+			self.execute_script(cmd)
+		elif confirm == 'n' or confirm == 'N':
+			self.reset_input()
+			self.run()
+		else:
+			confirm
+
+	def l3OSPF(self):
+
+		self.clear()
+		print("""
+			\t\t\tCISCO ACI AUTOMATION\n
+			\t\tL3OUT OSPF will be configure:
+			\t\t• Node Profile
+			\t\t• Interface Profile
+			\t\t• External EPG
+			\t\t• Static Routes
+			""")
+
+		cmd = 'ansible-playbook methods/tenant_3/executes/tenant_3_l3out_ospf_create_task.yml'
+
+		
+		confirm = input('Are you sure to push this configuration? [y/n]: ')
+		if confirm == 'y' or confirm == 'Y':
+			self.execute_script(cmd)
+		elif confirm == 'n' or confirm == 'N':
+			self.reset_input()
+			self.run()
+		else:
+			confirm
+
+	def l3BGP(self):
+
+		self.clear()
+		print("""
+			\t\t\tCISCO ACI AUTOMATION\n
+			\t\tL3OUT BGP will be configure:
+			\t\t• Node Profile
+			\t\t• Interface Profile
+			\t\t• External EPG
+			\t\t• BGP Peers
+			\t\t• Static Routes
+			\t\t• BFD Policy
+			""")
+
+		cmd = 'ansible-playbook methods/tenant_3/executes/tenant_3_l3out_bgp_create_task.yml'
+
+		
+		confirm = input('Are you sure to push this configuration? [y/n]: ')
+		if confirm == 'y' or confirm == 'Y':
+			self.execute_script(cmd)
+		elif confirm == 'n' or confirm == 'N':
+			self.reset_input()
+			self.run()
+		else:
+			confirm
 
 	def xltoyml(self):
 

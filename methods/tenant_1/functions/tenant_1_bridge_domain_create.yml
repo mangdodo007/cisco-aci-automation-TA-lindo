@@ -1,0 +1,105 @@
+---
+
+  - name: ACI Tenant Config - BRIDGE DOMAIN
+    hosts: apic
+    gather_facts: false
+    connection: local
+    collections:
+      - cisco.aci
+      - cisco.mso
+    tags:
+      - create
+    
+    vars:
+      aci_login: &aci_login
+        hostname: "{{ apic_hostname }}"
+        username: "{{ apic_username }}"
+        password: "{{ apic_password }}"
+        validate_certs: "{{ apic_validate_certs }}"
+
+    vars_files:
+      - "../../vars/tenant_1_{{xls_filename}}.yml"
+      
+    tasks:
+    - name: Create BD
+      tags:
+        - bd
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          fvBD:
+            attributes:
+              dn: "uni/tn-{{item.tn}}/BD-{{item.name}}"
+              name: "{{item.name}}"
+              arpFlood: "{{item.arpFlood}}"
+              epClear: "{{item.epClear}}"
+              ipLearning: "{{item.dataplaneLearning}}"
+              limitIpLearnToSubnets: "{{item.ipLearn}}"
+              mcastAllow: "{{item.mcastAllow}}"
+              multiDstPktAct: "bd-{{item.multidestFlood}}"
+              unicastRoute: "{{item.unicastRoute}}"
+              unkMacUcastAct: "{{item.l2unkUcast}}"
+              vmac: "{{item.vmac}}"
+              rn: "BD-{{item.name}}"
+            children:
+            - fvRsCtx:
+                attributes:
+                  tnFvCtxName: "{{item.vrf}}"
+      delegate_to: localhost
+      with_items:
+      - "{{bd}}"
+    
+    - name: Create BD virtual mac   #no ansible module, hence use aci_rest
+      tags:
+        - vmac
+
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content: |
+          "fvBD": {
+          "attributes": {
+              "dn": "uni/tn-{{item.tn}}/BD-{{item.name}}",
+              "vmac": "{{item.vmac}}"
+          },
+          "children": []
+          }
+      delegate_to: localhost
+      with_items:
+      - "{{bd}}"
+
+    - name: Create BD-Subnet
+      tags:
+        - bd_subnet
+
+      aci_bd_subnet:
+        <<: *aci_login
+        state: present
+        tenant: "{{ item.tn }}"
+        bd: "{{ item.bd }}"
+        description: "{{item.desc}}"
+        gateway: "{{item.ip}}"
+        scope: "{{item.scope}}"
+        mask: "{{item.mask}}"
+        enable_vip: "{{item.virtual_ip}}"
+        preferred: "{{item.pri_ip}}"
+        subnet_control: "{{item.subnet_ctrl}}"
+      delegate_to: localhost
+      with_items:
+      - "{{bdnet}}"
+
+    - name: Assign BD to L3Out
+      tags:
+        - bd_l3out
+      aci_bd_to_l3out:
+        <<: *aci_login
+        state: present
+        tenant: "{{ item.tn }}"
+        bd: "{{item.bd}}"
+        l3out: "{{item.l3out}}"
+      delegate_to: localhost
+      with_items:
+        - "{{bdl3out}}"

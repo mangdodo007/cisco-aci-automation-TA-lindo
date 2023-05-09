@@ -1,0 +1,12 @@
+---
+  - import_playbook: ../../user_input/get_input.yml
+  
+  - name: ACI Tenant Config - TENANT
+    hosts: apic
+    gather_facts: false
+    tags:
+      - tenant
+      - tn_policies
+
+
+  - import_playbook: ../functions/tenant_1_tenant_create.yml

@@ -32,12 +32,8 @@ def short_name(full_tab_name):
         short_name = "admin"          
     elif "fabric_policies" in ftn:
         short_name = "fabric_policies"
-    elif "fabric_access_policies_1" in ftn:
-        short_name = "fabric_access_policies_1"
-    elif "fabric_access_policies_2" in ftn:
-        short_name = "fabric_access_policies_2"
-    elif "fabric_access_policies_3" in ftn:
-        short_name = "fabric_access_policies_3"        
+    elif "fabric_access_policies" in ftn:
+        short_name = "fabric_access_policies" 
     elif "tenant_1" in ftn:
         short_name = "tenant_1"    
     elif "tenant_2" in ftn:

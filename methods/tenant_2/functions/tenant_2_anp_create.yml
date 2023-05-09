@@ -1,0 +1,40 @@
+---
+
+  - name: ACI Application Config
+    hosts: apic
+    gather_facts: false
+    collections:
+      - cisco.aci
+      - cisco.mso
+    tags:
+      - create
+    
+    vars:
+      aci_login: &aci_login
+        hostname: "{{ apic_hostname }}"
+        username: "{{ apic_username }}"
+        password: "{{ apic_password }}"
+        validate_certs: "{{ apic_validate_certs }}"
+
+    vars_files:
+      - "../../vars/tenant_2_{{xls_filename}}.yml"
+
+    tasks:
+    # - name: Import Config Variables
+    #   tags:
+    #     - always
+    #   include_vars: "../vars/step3_{{xls_filename}}.yml"
+
+    - name: Add Application Network Profile
+      tags:
+        - application
+        - anp
+      aci_ap:
+        <<: *aci_login
+        ap: "{{item.name}}"
+        tenant: "{{item.tn}}"
+        description: "{{item.desc}}"
+        state: present
+      delegate_to: localhost
+      with_items:
+      - "{{anp}}"

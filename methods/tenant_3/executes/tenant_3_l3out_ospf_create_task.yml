@@ -1,0 +1,12 @@
+---
+
+  - import_playbook: ../../user_input/get_input.yml
+
+  - name: ACI Fabric Buildout Ansible - Tenant_3 L3OUT OSPF
+    hosts: apic
+    gather_facts: false
+    tags:
+      - tenant_3
+      - l3out_ospf
+
+  - import_playbook: ../functions/tenant_3_l3out_ospf_create.yml

@@ -1,0 +1,317 @@
+---
+
+  - name: ACI Application Config
+    hosts: apic
+    gather_facts: false
+    collections:
+      - cisco.aci
+      - cisco.mso
+    tags:
+      - create
+    
+    vars:
+      aci_login: &aci_login
+        hostname: "{{ apic_hostname }}"
+        username: "{{ apic_username }}"
+        password: "{{ apic_password }}"
+        validate_certs: "{{ apic_validate_certs }}"
+
+    vars_files:
+      - "../../vars/tenant_2_{{xls_filename}}.yml"
+
+    tasks:
+    - name: Create EPGs
+      tags:
+        - epg
+      aci_epg:
+        <<: *aci_login
+        state: present
+        epg: "{{item.name}}"
+        ap: "{{item.anp}}"
+        tenant: "{{ item.tn }}"
+        bd: "{{ item.bd }}"
+        description: "{{item.desc}}"
+      delegate_to: localhost
+      with_items:
+      - "{{epg}}"
+
+    - name: Add Domain to EPG
+      tags:
+        - network
+        - add_domain
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          fvRsDomAtt:
+            attributes:
+              classPref: "encap"
+              dn: "uni/tn-{{item.tn}}/ap-{{item.anp}}/epg-{{item.epg}}/rsdomAtt-[uni/phys-{{item.phydom}}]"
+              encap: "unknown"
+              primaryEncap: "unknown"
+      delegate_to: localhost
+      with_items:
+        - "{{addDom2epg}}"
+
+    - name: Create Contracts
+      tags:
+        - contract
+      aci_contract:
+        <<: *aci_login
+        state: present
+        contract: "{{item.name}}"
+        tenant: "{{ item.tn }}"
+        scope: "{{item.scope}}"
+      delegate_to: localhost
+      with_items:
+      - "{{contractdef}}"
+
+    - name: Create Contract Subjects
+      tags:
+        - contract
+        - contractdef
+        - subject
+      aci_contract_subject:
+        <<: *aci_login
+        state: present
+        contract: "{{item.name}}"
+        tenant: "{{ item.tn }}"
+        subject: "{{item.subject}}"
+        reverse_filter: "{{item.revFilter}}"
+      delegate_to: localhost
+      with_items:
+      - "{{ctrsubj}}"
+
+    - name: Create Filter  
+      tags:
+        - filter
+
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content: |
+          {
+            "vzFilter": {
+              "attributes": {
+                "dn": "uni/tn-{{item.name_tn}}/flt-{{item.name_fltr}}",
+                "name": "{{item.name_fltr}}",
+              },
+              "children": [
+                {
+                  "vzEntry": {
+                    "attributes": {
+                      "dn": "uni/tn-{{item.name_tn}}/flt-{{item.name_fltr}}/e-{{item.entname}}",
+                      "name": "{{item.entname}}",
+                      "etherT": "{{item.ethtype}}",
+                      "prot": "{{ 'unspecified' if item.ipprot == '' else item.ipprot }}",
+                      "arpOpc": "{{ 'unspecified' if item.arpflag == '' else 'req' if item.arpflag == 'arp_request' else 'reply' if item.arpflag == 'arp_reply' else item.arpflag}}",
+                      "applyToFrag": "{{ 'no' if item.fragmnt == '' else item.fragmnt }}",
+                      "stateful": "{{ 'no' if item.statfl == '' else item.statfl }}",
+                      "sFromPort": "{{ 'unspecified' if item.srcfrom == '' else item.srcfrom }}",
+                      "sToPort": "{{ 'unspecified' if item.srcto == '' else item.srcto }}",
+                      "dFromPort": "{{ 'unspecified' if item.destfrom == '' else item.destfrom }}",
+                      "dToPort": "{{ 'unspecified' if item.destto == '' else item.destto }}",
+                      "tcpRules": "{{'unspecified' if item.tcprules == '' else item.tcprules }}",
+                    },
+                    "children": []
+                  }
+                }
+              ]
+            }
+          }
+      delegate_to: localhost
+      with_items:
+      - "{{ filtr }}"
+
+    - name: Bind Contract Subjects to Filters
+      tags:
+        - subject
+        - filter
+        - filter2subject
+      aci_contract_subject_to_filter:
+        <<: *aci_login
+        state: present
+        tenant: "{{item.tn}}"
+        contract: "{{item.name}}"
+        subject: "{{item.subject}}"
+        filter: "{{item.filter}}"
+      delegate_to: localhost
+      with_items:
+      - "{{filter2subject}}"
+
+    - name: Configure Providing Contracts
+      tags:
+        - application
+        - contract
+        - provcondef
+      aci_epg_to_contract:
+        <<: *aci_login
+        state: present
+        tenant: "{{ item.tn }}"
+        contract: "{{ item.name }}"
+        contract_type: "provider"
+        epg: "{{item.epg}}"
+        ap: "{{item.anp}}"
+      delegate_to: localhost
+      with_items:
+      - "{{provcondef}}"
+
+    - name: Configure Consuming Contracts
+      tags:
+        - application
+        - contract
+        - conscondef
+      aci_epg_to_contract:
+        <<: *aci_login
+        state: present
+        tenant: "{{ item.tn }}"
+        contract: "{{ item.name }}"
+        contract_type: "consumer"
+        epg: "{{item.epg}}"
+        ap: "{{item.anp}}"
+      delegate_to: localhost
+      with_items:
+      - "{{conscondef}}"
+
+    - name: Create vzAny provided contract  #if contract already defined, you will get errors
+      tags:
+        - vzany_prov
+
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni/tn-{{item.tn}}/ctx-{{item.vrf}}/any.json"
+        content: |
+          "vzRsAnyToProv": {
+            "attributes": {
+              "tnVzBrCPName": "{{item.contract}}",
+              "status": "created"
+            },
+            "children": []
+          }
+      delegate_to: localhost
+      with_items:
+      - "{{ vzany_prov }}"
+
+
+    - name: Create vzAny consume contract   #if contract already defined, you will get errors
+      tags:
+        - vzany_cons
+
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni/tn-{{item.tn}}/ctx-{{item.vrf}}/any.json"
+        content: |
+          "vzRsAnyToCons": {
+            "attributes": {
+              "tnVzBrCPName": "{{item.contract}}",
+              "status": "created"
+            },
+          "children": []
+          }
+      delegate_to: localhost
+      with_items:
+      - "{{ vzany_cons }}"
+
+    - name: Static Path Binding (type == acc)
+      tags:
+        - network
+        - static_path
+        - static_path_acc
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          fvRsPathAtt:
+            attributes:
+              dn: "uni/tn-{{item.0.tn}}/ap-{{item.0.anp}}/epg-{{item.0.epg}}/rspathAtt-[topology/pod-{{item.1.pod}}/paths-{{item.1.paths}}/pathep-[eth{{item.1.intpolgrp}}]]"
+              encap: "vlan-{{item.0.encap}}"
+              mode: "{{item.1.mode}}"
+              instrImedcy: "{{item.1.immediacy}}"
+              primaryEncap: "{{item.1.priencap}}"
+      delegate_to: localhost
+      when: item.1.allowed_encap | in_allowed_encap(item.0.encap) and item.1.conntype == "acc"
+      # Add static path where addDom2epg.encap contained in staticPath.allowed_encap
+      # in_allowed_encap is a ansible plugin filter. We pass in the item.1.allowed_encap and item.0.encap
+      # it will return  true if  addDom2epg.encap contained in staticPath.allowed encap.
+      with_nested:
+        - "{{addDom2epg}}"    #item.0
+        - "{{staticPath}}"    #item.1
+
+    - name: Static Path Binding (type == dpo)
+      tags:
+        - network
+        - staticPath
+        - dpo
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          fvRsPathAtt:
+            attributes:
+              dn: "uni/tn-{{item.0.tn}}/ap-{{item.0.anp}}/epg-{{item.0.epg}}/rspathAtt-[topology/pod-{{item.1.pod}}/paths-{{item.1.paths}}/pathep-[{{item.1.intpolgrp}}]]"
+              encap: "vlan-{{item.0.encap}}"
+              mode: "{{item.1.mode}}"
+              instrImedcy: "{{item.1.immediacy}}"
+              primaryEncap: "{{item.1.priencap}}"
+      delegate_to: localhost
+      when: item.1.allowed_encap | in_allowed_encap(item.0.encap) and item.1.conntype == "dpo"
+      with_nested:
+        - "{{addDom2epg}}"    #item.0
+        - "{{staticPath}}"  #item.1
+
+    - name: Static Path Binding (type == vpc)
+      tags:
+        - network
+        - staticPath
+        - vpc
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          fvRsPathAtt:
+            attributes:
+              dn: "uni/tn-{{item.0.tn}}/ap-{{item.0.anp}}/epg-{{item.0.epg}}/rspathAtt-[topology/pod-{{item.1.pod}}/protpaths-{{item.1.paths}}/pathep-[{{item.1.intpolgrp}}]]"
+              encap: "vlan-{{item.0.encap}}"
+              mode: "{{item.1.mode}}"
+              instrImedcy: "{{item.1.immediacy}}"
+              primaryEncap: "{{item.1.priencap}}"
+      delegate_to: localhost
+      when: item.1.allowed_encap | in_allowed_encap(item.0.encap) and item.1.conntype == "vpc"
+      with_nested:
+        - "{{addDom2epg}}"    #item.0
+        - "{{staticPath}}"  #item.1
+
+    - name: Add interface description to interface selector
+      tags:
+        - int_desc
+
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          infraAccPortP:
+            attributes:
+              dn: "uni/infra/accportprof-{{item.name}}"
+              name: "{{item.name}}"
+            children:
+              - infraHPortS:
+                  attributes:
+                    dn: "uni/infra/accportprof-{{item.name}}/hports-{{item.intSel}}-typ-range"
+                    name: "{{item.intSel}}"
+                  children:
+                    - infraPortBlk:
+                        attributes:
+                          dn: "uni/infra/accportprof-{{item.name}}/hports-{{item.intSel}}-typ-range/portblk-block2"
+                          descr: "{{item.intDesc}}"
+
+      delegate_to: localhost
+      with_items:
+        - "{{IntDesc}}"

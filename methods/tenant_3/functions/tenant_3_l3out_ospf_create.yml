@@ -1,0 +1,285 @@
+---
+  - name: ACI L3 Out Config
+    hosts: apic
+    gather_facts: false
+    collections:
+      - cisco.aci
+      - cisco.mso
+    tags:
+      - create
+    
+    vars:
+      aci_login: &aci_login
+        hostname: "{{ apic_hostname }}"
+        username: "{{ apic_username }}"
+        password: "{{ apic_password }}"
+        validate_certs: "{{ apic_validate_certs }}"
+
+    vars_files:
+      - "../../vars/tenant_3_{{xls_filename}}.yml"
+
+    tasks:
+    - name: Create OSPF Routed external out (l3out)
+      tags:
+        - network
+        - l3extout_ospf
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          l3extOut:
+            attributes:
+              dn: "uni/tn-{{item.tn}}/out-{{item.name}}"
+              name: "{{item.name}}"
+              descr: "{{item.desc}}"
+            children:
+              - ospfExtP:
+                  attributes:
+                    dn: "uni/tn-{{item.tn}}/out-{{item.name}}/ospfExtP"
+                    areaId: "{{item.area}}"
+                    areaType: "{{item.areatype}}"
+              - l3extRsEctx:
+                  attributes:
+                    tnFvCtxName: "{{item.vrf}}"
+              - l3extRsL3DomAtt:
+                  attributes:
+                    tDn: "uni/l3dom-{{item.l3outdom}}"
+      delegate_to: localhost
+      with_items:
+        - "{{l3extout_ospf}}"
+
+    - name: Create OSPF external routed node profile
+      tags:
+        - network
+        - l3extnodep_ospf
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          l3extLNodeP:
+            attributes:
+              dn: "uni/tn-{{item.tn}}/out-{{item.l3extout}}/lnodep-{{item.name}}"
+              name: "{{item.name}}"
+            children:
+              - l3extLIfP:
+                  attributes:
+                    dn: "uni/tn-{{item.tn}}/out-{{item.l3extout}}/lnodep-{{item.name}}/lifp-{{item.ospfintprof}}"
+                    name: "{{item.ospfintprof}}"
+                    descr: "OSPF Interface Profile"
+                  children:
+                    - ospfIfP:
+                        attributes:
+                          dn: "uni/tn-{{item.tn}}/out-{{item.l3extout}}/lnodep-{{item.name}}/lifp-{{item.ospfintprof}}/ospfIfP"
+              - l3extRsNodeL3OutAtt:
+                  attributes:
+                    dn: "uni/tn-{{item.tn}}/out-{{item.l3extout}}/lnodep-{{item.name}}/rsnodeL3OutAtt-[topology/pod-{{item.pod}}/node-{{item.node}}]"
+                    tDn: "topology/pod-{{item.pod}}/node-{{item.node}}"
+                    rtrId: "{{item.rtrid}}"
+                    rtrIdLoopBack: "{{item.rtrlo}}"
+                    rn: "rsnodeL3OutAtt-[topology/pod-{{item.pod}}/node-{{item.node}}]"
+                  children:
+                    - l3extInfraNodeP:
+                        attributes:
+                          fabricExtCtrlPeering: "false"
+      delegate_to: localhost
+      with_items:
+        - "{{l3extnodep_ospf}}"
+
+    - name: Create L3Outs Loopback Addresses
+      tags:
+        - network
+        - l3out_ospf_lo
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          l3extRsNodeL3OutAtt:
+            attributes:
+              dn: "uni/tn-{{item.tn}}/out-{{item.l3extout}}/lnodep-{{item.name}}/rsnodeL3OutAtt-[topology/pod-{{item.pod}}/node-{{item.node}}]"
+            children:
+              - l3extLoopBackIfP:
+                  attributes:
+                    addr: "{{item.loopbackAddr}}"
+                    rn: "lbp-[{{item.loopbackAddr}}]"
+      delegate_to: localhost
+      with_items:
+        - "{{l3out_ospf_lo}}"
+
+    - name: Create L3Outs Static Routes
+      tags:
+        - network
+        - l3out_ospf_static
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          ipRouteP:
+            attributes:
+              dn: "uni/tn-{{item.tn}}/out-{{item.l3extout}}/lnodep-{{item.name}}/rsnodeL3OutAtt-[topology/pod-{{item.pod}}/node-{{item.node}}]/rt-[{{item.staticRoute}}]"
+              ip: "{{item.staticRoute}}"
+              rtCtrl: "{{item.rtctrl | default(omit)}}"
+              rn: "rt-[{{item.staticRoute}}]"
+            children:
+            - ipNexthopP:
+                attributes:
+                  dn: "uni/tn-{{item.tn}}/out-{{item.l3extout}}/lnodep-{{item.name}}/rsnodeL3OutAtt-[topology/pod-{{item.pod}}/node-{{item.node}}]/rt-[{{item.staticRoute}}]/nh-[{{item.nexthop}}]"
+                  nhAddr: "{{item.nexthop}}"
+                  pref: "{{item.preference}}"
+                  rn: "nh-[{{item.nexthop}}]"
+      delegate_to: localhost
+      with_items:
+        - "{{l3out_ospf_static}}"
+
+    - name: Configure External Routed L3 Out Routed Interface (conntype == l3-port)
+      tags:
+        - network
+        - l3out_routedint
+        - l3_port
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          l3extRsPathL3OutAtt:
+            attributes:
+              dn: "uni/tn-{{item.tn}}/out-{{item.l3extout}}/lnodep-{{item.name}}/lifp-{{item.ospfintprof}}/rspathL3OutAtt-[topology/pod-{{item.pod}}/paths-{{item.node}}/pathep-[{{item.int}}]]"
+              ifInstT: "{{item.conntype}}"
+              descr: "{{item.desc}}"
+              addr: "{{item.ip}}/{{item.mask}}"
+              mtu: "{{item.mtu}}"
+      delegate_to: localhost
+      when: item.conntype == "l3-port"
+      with_items:
+        - "{{l3out_routedint}}"
+
+    - name: Configure External Routed L3 Out Routed Interface (conntype == sub-interface)
+      tags:
+        - network
+        - l3out_routedint
+        - sub_interface
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          l3extRsPathL3OutAtt:
+            attributes:
+              dn: "uni/tn-{{item.tn}}/out-{{item.l3extout}}/lnodep-{{item.name}}/lifp-{{item.ospfintprof}}/rspathL3OutAtt-[topology/pod-{{item.pod}}/paths-{{item.node}}/pathep-[{{item.int}}]]"
+              ifInstT: "{{item.conntype}}"
+              descr: "{{item.desc}}"
+              addr: "{{item.ip}}/{{item.mask}}"
+              mtu: "{{item.mtu}}"
+              encap: "vlan-{{item.encap}}"
+      delegate_to: localhost
+      when: item.conntype == "sub-interface"
+      with_items:
+        - "{{l3out_routedint}}"
+
+    - name: Configure External Routed L3 Out Routed Interface
+      tags:
+        - network
+        - l3out_routedint
+        - ext_svi
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          l3extRsPathL3OutAtt:
+            attributes:
+              dn: "uni/tn-{{item.tn}}/out-{{item.l3extout}}/lnodep-{{item.name}}/lifp-{{item.ospfintprof}}/rspathL3OutAtt-[topology/pod-{{item.pod}}/paths-{{item.node}}/pathep-[{{item.int}}]]"
+              ifInstT: "{{item.conntype}}"
+              descr: "{{item.desc}}"
+              addr: "{{item.ip}}/{{item.mask}}"
+              mtu: "{{item.mtu}}"
+              encap: "vlan-{{item.encap}}"
+              mode: "{{item.mode}}"
+      delegate_to: localhost
+      when: item.conntype == "ext-svi"
+      with_items:
+        - "{{l3out_routedint}}"
+
+    - name: Configure External Routed L3 Out Network EPG
+      tags:
+        - network
+        - l3epg
+      aci_rest:
+        <<: *aci_login
+        method: post
+        path: "/api/node/mo/uni.json"
+        content:
+          l3extInstP:
+            attributes:
+              dn: "uni/tn-{{item.tn}}/out-{{item.l3extout}}/instP-{{item.name}}"
+              name: "{{item.name}}"
+              descr: "{{item.desc}}"
+              rn: "instP-ExtL3Out-Networks-EPG"
+            children:
+              - l3extSubnet:
+                  attributes:
+                    dn: "uni/tn-{{item.tn}}/out-{{item.l3extout}}/instP-{{item.name}}/extsubnet-[{{item.extip}}/{{item.extipmask}}]"
+                    ip: "{{item.extip}}/{{item.extipmask}}"
+                    aggregate: ""
+      delegate_to: localhost
+      with_items:
+        - "{{l3epg}}"
+
+    # - name: Configure Transit Routing - Add Subnet to L3 Out EPG
+    #   tags:
+    #     - network
+    #     - transit_routing
+    #     - epgsubnet
+    #   aci_rest:
+    #     <<: *aci_login
+    #     method: post
+    #     path: "/api/node/mo/uni.json"
+    #     content:
+    #       l3extSubnet:
+    #         attributes:
+    #           dn: "uni/tn-{{item.tn}}/out-{{item.l3out}}/instP-{{item.l3epg}}/extsubnet-[{{item.extip}}/{{item.extmask}}]"
+    #           ip: "{{item.extip}}/{{item.extmask}}"
+    #           scope: "{{item.scope}}"
+    #           aggregate: ""
+    #   delegate_to: localhost
+    #   with_items:
+    #     - "{{epgsubnet}}"
+
+    # - name: Configure Transit Routing - IP Route Profile
+    #   tags:
+    #     - network
+    #     - transit_routing
+    #     - iproutep
+    #   aci_rest:
+    #     <<: *aci_login
+    #     method: post
+    #     path: "/api/node/mo/uni.json"
+    #     content:
+    #       ipRouteP:
+    #         attributes:
+    #           dn: "uni/tn-{{item.tn}}/out-{{item.l3out}}/lnodep-{{item.l3nodeprof}}/rsnodeL3OutAtt-[topology/pod-{{item.pod}}/node-{{item.node}}]/rt-[{{item.extip}}/{{item.extmask}}]"
+    #           ip: "{{item.extip}}/{{item.extmask}}"
+    #   delegate_to: localhost
+    #   with_items:
+    #     - "{{iproutep}}"
+
+    # - name: Configure Transit Routing - IP Next Hop Profile
+    #   tags:
+    #     - network
+    #     - transit_routing
+    #     - ipnexthopp
+    #   aci_rest:
+    #     <<: *aci_login
+    #     method: post
+    #     path: "/api/node/mo/uni.json"
+    #     content:
+    #       ipNexthopP:
+    #         attributes:
+    #           dn: "uni/tn-{{item.tn}}/out-{{item.l3out}}/lnodep-{{item.l3nodeprof}}/rsnodeL3OutAtt-[topology/pod-{{item.pod}}/node-{{item.node}}]/rt-[{{item.extip}}/{{item.extmask}}]/nh-[{{item.nexthop}}]"
+    #           nhAddr: "{{item.nexthop}}"
+    #   delegate_to: localhost
+    #   with_items:
+    #     - "{{ipnexthopp}}"

@@ -1,0 +1,38 @@
+---
+
+  - name: ACI Tenant Config - VRF
+    hosts: apic
+    gather_facts: false
+    connection: local
+    collections:
+      - cisco.aci
+      - cisco.mso
+    tags:
+      - create
+    
+    vars:
+      aci_login: &aci_login
+        hostname: "{{ apic_hostname }}"
+        username: "{{ apic_username }}"
+        password: "{{ apic_password }}"
+        validate_certs: "{{ apic_validate_certs }}"
+
+    vars_files:
+      - "../../vars/tenant_1_{{xls_filename}}.yml"
+      
+    tasks:
+    - name: Add a new VRF to a tenant
+      tags:
+        - vrf
+
+      aci_vrf:
+        <<: *aci_login
+        vrf: "{{item.name}}"
+        tenant: "{{item.tenant}}"
+        description: "{{item.desc}}"
+        policy_control_preference: "{{item.enfctrl}}"
+        policy_control_direction: "{{item.enfctrldir}}"
+        state: present
+      delegate_to: localhost
+      with_items:
+      - "{{ctx}}"
